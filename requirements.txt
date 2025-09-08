@@ -1,0 +1,21 @@
+streamlit>=1.28.0
+langchain>=0.1.0
+langchain-google-genai>=0.0.6
+langchain-community>=0.0.10
+chromadb>=0.4.0
+google-generativeai>=0.3.0
+python-dotenv>=1.0.0
+pypdf>=3.0.0
+tiktoken>=0.5.0
+numpy>=1.24.0
+pandas>=2.0.0
+cryptography>=3.1
+pytesseract>=0.3.10
+PyMuPDF>=1.20.0
+Pillow>=9.0.0
+
+# Cloud database options (install as needed)
+# pinecone-client>=2.2.0
+# weaviate-client>=3.0.0
+# langchain-pinecone>=0.0.1
+# langchain-weaviate>=0.0.1
