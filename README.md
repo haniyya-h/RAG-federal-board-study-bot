@@ -87,7 +87,7 @@ pip install -r requirements.txt
 
 # Set up environment
 cp .env.example .env
-# Edit .env and add your API key
+# Edit .env and add your Google API key
 ```
 
 ### **Data Processing**
