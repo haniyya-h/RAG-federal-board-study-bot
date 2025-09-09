@@ -52,7 +52,7 @@ Thumbs.db
 data/*.pdf
 data/grade_*/**/*.pdf
 
-# Generated embeddings - INCLUDED for immediate usability
+# Generated embeddings 
 # embeddings/
 # *.sqlite3
 # *.bin
