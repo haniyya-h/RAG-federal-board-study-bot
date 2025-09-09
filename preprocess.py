@@ -21,22 +21,19 @@ Run this script once to preprocess all PDFs and create embeddings.
 """
 
 import os
-import json
 from pathlib import Path
-import chromadb
-from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import Chroma
 from dotenv import load_dotenv
 import tiktoken
 import pytesseract
-import fitz  # PyMuPDF - alternative to pdf2image
+import fitz  
 from PIL import Image
 import io
 
 # Load environment variables
-load_dotenv()
+load_dotenv(override=True)
 
 # Configuration
 GRADES = ['grade_9', 'grade_10', 'grade_11', 'grade_12']
