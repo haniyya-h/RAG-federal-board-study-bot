@@ -6,14 +6,12 @@ A RAG-based chatbot for Federal Board students using ChromaDB + Gemini
 import streamlit as st
 import os
 from pathlib import Path
-import chromadb
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from langchain_community.vectorstores import Chroma
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 from dotenv import load_dotenv
 import time
-import numpy as np
 
 # Load environment variables (override=True ensures .env file takes precedence)
 load_dotenv(override=True)
