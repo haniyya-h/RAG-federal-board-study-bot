@@ -260,7 +260,7 @@ This project demonstrates:
 3. **Document Processing** - OCR, chunking, and embedding generation
 4. **AI Integration** - LLM integration with custom prompts
 5. **Web Development** - Streamlit for user interface
-6. **Python Programming** - Modern Python with async/await patterns
+6. **Python Programming** - Modern Python with clean, modular code
 7. **API Integration** - Google Gemini AI services
 8. **Data Pipeline** - End-to-end document processing workflow
 
@@ -274,6 +274,6 @@ This project demonstrates:
 
 ---
 
-**RAG Implementation for Educational AI Assignment** 🎓
+**Made with ❤️ for Federal Board students in Pakistan**
 
-*Demonstrating modern AI techniques for document-based question answering*
+*Empowering students with AI-powered learning tools* 🚀
