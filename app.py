@@ -31,20 +31,30 @@ if 'current_grade_subject' not in st.session_state:
 
 @st.cache_resource
 def load_embeddings():
-    """Load Google Generative AI embeddings model"""
-    return GoogleGenerativeAIEmbeddings(
-        model="models/embedding-001",
-        google_api_key=os.getenv("GOOGLE_API_KEY")
-    )
+    """Load Google Generative AI embeddings model with retry logic"""
+    try:
+        return GoogleGenerativeAIEmbeddings(
+            model="models/text-embedding-004",
+            google_api_key=os.getenv("GOOGLE_API_KEY")
+        )
+    except Exception as e:
+        st.error(f"Failed to load embeddings: {str(e)}")
+        st.info("This might be due to API quota limits. Please try again later or check your Google AI Studio quota.")
+        return None
 
 @st.cache_resource
 def load_llm():
-    """Load Google Generative AI language model"""
-    return ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash",
-        temperature=0.1,
-        google_api_key=os.getenv("GOOGLE_API_KEY")
-    )
+    """Load Google Generative AI language model with error handling"""
+    try:
+        return ChatGoogleGenerativeAI(
+            model="gemini-1.5-flash",
+            temperature=0.1,
+            google_api_key=os.getenv("GOOGLE_API_KEY")
+        )
+    except Exception as e:
+        st.error(f"Failed to load LLM: {str(e)}")
+        st.info("This might be due to API quota limits. Please try again later or check your Google AI Studio quota.")
+        return None
 
 def subject_to_filename(subject):
     """Convert subject display name to filename format"""
@@ -122,24 +132,24 @@ def generate_slo_questions(question, grade, subject, llm):
 
 def create_custom_prompt():
     """Create custom prompt template for the QA chain"""
-    template = """You are a friendly study buddy for Federal Board students in Pakistan. Help them understand their textbook content in simple, easy-to-understand language.
+    template = """You are an academic tutor for Federal Board students in Pakistan. Provide clear, accurate explanations based on the textbook content.
 
-IMPORTANT INSTRUCTIONS:
-1. Answer like you're explaining to a friend who's struggling with the topic
-2. Use simple words and short sentences
-3. Break down complex concepts into easy steps
-4. Give real-life examples that students can relate to
-5. Be encouraging and supportive
-6. If something is hard, explain why it's important to learn
-7. Use the textbook context to give accurate information
-8. Keep answers under 300 words
+INSTRUCTIONS:
+1. Provide clear and concise explanations
+2. Use appropriate academic language for the grade level
+3. Break down complex concepts into logical steps
+4. Include relevant examples when helpful
+5. Base your answer strictly on the provided textbook context
+6. Maintain a professional yet approachable tone
+7. Keep answers focused and under 300 words
+8. Ensure accuracy and educational value
 
 CONTEXT from Federal Board Textbook:
 {context}
 
 STUDENT'S QUESTION: {question}
 
-FRIENDLY ANSWER: """
+ANSWER: """
 
     return PromptTemplate(
         template=template,
@@ -203,8 +213,18 @@ def main():
     if 'app_initialized' not in st.session_state:
         with st.spinner("🚀 Initializing your study buddy..."):
             # Pre-load the embeddings and LLM models
-            load_embeddings()
-            load_llm()
+            embeddings = load_embeddings()
+            llm = load_llm()
+            
+            if embeddings is None or llm is None:
+                st.error("❌ Failed to initialize AI models. This might be due to API quota limits.")
+                st.info("**Solutions:**")
+                st.info("1. Wait for quota reset (usually daily)")
+                st.info("2. Check your Google AI Studio quota usage")
+                st.info("3. Consider upgrading to a paid plan")
+                st.info("4. Try again later")
+                st.stop()
+            
             st.session_state.app_initialized = True
     
     # Check if Google API key is set
