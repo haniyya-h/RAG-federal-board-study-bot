@@ -1,13 +1,14 @@
 """
 Federal Board Study Bot - Streamlit Application
-A RAG-based chatbot for Federal Board students using ChromaDB + Gemini
+A RAG-based chatbot for Federal Board students using ChromaDB + Groq
 """
 
 import streamlit as st
 import os
 from pathlib import Path
-from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
+from langchain_groq import ChatGroq
 from langchain_community.vectorstores import Chroma
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 from dotenv import load_dotenv
@@ -31,39 +32,78 @@ if 'current_grade_subject' not in st.session_state:
 
 @st.cache_resource
 def load_embeddings():
-    """Load Google Generative AI embeddings model with retry logic"""
+    """Load HuggingFace embeddings model"""
     try:
-        return GoogleGenerativeAIEmbeddings(
-            model="models/text-embedding-004",
-            google_api_key=os.getenv("GOOGLE_API_KEY")
+        return HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L6-v2",
+            model_kwargs={'device': 'cpu'}
         )
     except Exception as e:
         st.error(f"Failed to load embeddings: {str(e)}")
-        st.info("This might be due to API quota limits. Please try again later or check your Google AI Studio quota.")
+        st.info("This might be due to network issues. Please check your internet connection.")
         return None
 
 @st.cache_resource
 def load_llm():
-    """Load Google Generative AI language model with error handling"""
+    """Load Groq language model with error handling"""
     try:
-        return ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash",
+        return ChatGroq(
+            model="llama-3.1-8b-instant",
             temperature=0.1,
-            google_api_key=os.getenv("GOOGLE_API_KEY")
+            groq_api_key=os.getenv("GROQ_API_KEY")
         )
     except Exception as e:
         st.error(f"Failed to load LLM: {str(e)}")
-        st.info("This might be due to API quota limits. Please try again later or check your Google AI Studio quota.")
+        st.info("This might be due to API quota limits. Please try again later or check your Groq API key.")
         return None
 
 def subject_to_filename(subject):
     """Convert subject display name to filename format"""
     return subject.lower().replace(' ', '_')
 
+def extract_chapter_from_content(text):
+    """Extract chapter information from document content"""
+    lines = text.split('\n')
+    
+    # Check first 10 lines for chapter/unit headers
+    for line in lines[:10]:
+        line_clean = line.strip()
+        line_lower = line_clean.lower()
+        
+        # Look for specific chapter patterns
+        if 'fluid mechanics' in line_lower:
+            return "Chapter 6 Fluid Mechanics"
+        elif 'electricity' in line_lower and ('unit' in line_lower or 'chapter' in line_lower):
+            return "Chapter 11 Electricity"
+        elif 'heat' in line_lower and 'thermodynamics' in line_lower:
+            return "Chapter 8 Heat and Thermodynamics"
+        elif 'particle physics' in line_lower:
+            return "Chapter 12 Particle Physics"
+        elif 'superfluidity' in line_lower:
+            return "Chapter 6 Fluid Mechanics"  # Superfluidity is part of fluid mechanics
+    
+    return None
+
+@st.cache_resource
+def create_qa_chain(_vectorstore, llm, custom_prompt):
+    """Create and cache the QA chain for better performance"""
+    return RetrievalQA.from_chain_type(
+        llm=llm,
+        chain_type="stuff",
+        retriever=_vectorstore.as_retriever(
+            search_type="similarity",
+            search_kwargs={"k": 3}
+        ),
+        chain_type_kwargs={"prompt": custom_prompt},
+        return_source_documents=True
+    )
+
 @st.cache_resource
 def load_vector_store(grade, subject):
     """Load ChromaDB vector store for specific grade and subject"""
     subject_filename = subject_to_filename(subject)
+    
+    # Use standard path for all vector stores
     db_path = EMBEDDINGS_DIR / f"grade_{grade}_{subject_filename}"
     
     if not db_path.exists():
@@ -86,7 +126,7 @@ def load_vector_store(grade, subject):
         return None
 
 def generate_slo_questions(question, grade, subject, llm):
-    """Generate relevant SLO questions using Gemini based on the student's question"""
+    """Generate relevant SLO questions using Groq based on the student's question"""
     try:
         prompt = f"""You are a helpful study assistant for Federal Board students in Pakistan. 
         A Grade {grade} student studying {subject} asked: "{question}"
@@ -113,18 +153,11 @@ def generate_slo_questions(question, grade, subject, llm):
         # Split by newlines and clean up
         questions = []
         for line in content.split('\n'):
-            line = line.strip()
-            # Remove any numbering or bullet points
-            line = line.lstrip('123456789.-•* ')
+            line = line.strip().lstrip('123456789.-•* ')
             if line and '?' in line and len(line) > 10:
                 questions.append(line)
         
-        if questions:
-            print(f"Generated {len(questions)} SLO questions for {subject}")
-            return questions[:3]  # Return max 3 questions
-        else:
-            print(f"No valid SLO questions generated. Raw response: {content[:200]}...")
-            return []
+        return questions[:3] if questions else []
             
     except Exception as e:
         print(f"Error generating SLO questions: {e}")
@@ -169,8 +202,17 @@ def format_response(answer, relevant_docs, slo_questions):
         for doc in relevant_docs:
             if 'page_number' in doc.metadata:
                 pages.add(str(doc.metadata['page_number']))
-            if 'chapter' in doc.metadata and doc.metadata['chapter'] != "General Content":
-                chapters.add(doc.metadata['chapter'])
+            
+            # Check chapter metadata
+            chapter = doc.metadata.get('chapter', '')
+            if chapter and chapter != "General Content":
+                chapters.add(chapter)
+            
+            # Also try to extract chapter from content if metadata is not helpful
+            if not chapter or chapter == "General Content":
+                content_chapter = extract_chapter_from_content(doc.page_content)
+                if content_chapter:
+                    chapters.add(content_chapter)
         
         if pages:
             try:
@@ -220,16 +262,16 @@ def main():
                 st.error("❌ Failed to initialize AI models. This might be due to API quota limits.")
                 st.info("**Solutions:**")
                 st.info("1. Wait for quota reset (usually daily)")
-                st.info("2. Check your Google AI Studio quota usage")
+                st.info("2. Check your Groq API quota usage")
                 st.info("3. Consider upgrading to a paid plan")
                 st.info("4. Try again later")
                 st.stop()
             
             st.session_state.app_initialized = True
     
-    # Check if Google API key is set
-    if not os.getenv("GOOGLE_API_KEY"):
-        st.error("❌ Google API key not found. Please set GOOGLE_API_KEY in your .env file.")
+    # Check if Groq API key is set
+    if not os.getenv("GROQ_API_KEY"):
+        st.error("❌ Groq API key not found. Please set GROQ_API_KEY in your .env file.")
         st.stop()
     
     # Sidebar for grade and subject selection
@@ -284,22 +326,15 @@ def main():
         
         with st.spinner("Searching textbook and generating answer..."):
             try:
-                # Use cached LLM
+                # Use cached LLM and prompt
                 llm = load_llm()
-                
-                # Create custom prompt
                 custom_prompt = create_custom_prompt()
                 
-                # Create retrieval QA chain
-                qa_chain = RetrievalQA.from_chain_type(
-                    llm=llm,
-                    chain_type="stuff",
-                    retriever=st.session_state.current_vectorstore.as_retriever(
-                        search_type="similarity",
-                        search_kwargs={"k": 3}
-                    ),
-                    chain_type_kwargs={"prompt": custom_prompt},
-                    return_source_documents=True
+                # Use cached QA chain
+                qa_chain = create_qa_chain(
+                    st.session_state.current_vectorstore, 
+                    llm, 
+                    custom_prompt
                 )
                 
                 # Get answer from textbook
@@ -307,24 +342,10 @@ def main():
                 answer = result["result"]
                 source_docs = result["source_documents"]
                 
-                # Generate relevant SLO questions using Gemini
+                # Generate relevant SLO questions using Gemini (simplified)
                 slo_questions = generate_slo_questions(
                     question, selected_grade, selected_subject, llm
                 )
-                
-                # If no questions generated, try a simpler approach
-                if not slo_questions:
-                    print("Trying fallback SLO question generation...")
-                    try:
-                        simple_prompt = f"Generate 3 simple practice questions for Grade {selected_grade} {selected_subject} about: {question}. Return only the questions, one per line, ending with ?"
-                        fallback_response = llm.invoke(simple_prompt)
-                        fallback_content = fallback_response.content.strip()
-                        fallback_questions = [q.strip().lstrip('123456789.-•* ') for q in fallback_content.split('\n') if q.strip() and '?' in q and len(q.strip()) > 10]
-                        if fallback_questions:
-                            slo_questions = fallback_questions[:3]
-                            print(f"Fallback generated {len(slo_questions)} questions")
-                    except Exception as e:
-                        print(f"Fallback SLO generation failed: {e}")
                 
                 # Format complete response
                 formatted_response = format_response(answer, source_docs, slo_questions)
