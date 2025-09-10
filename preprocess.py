@@ -23,7 +23,7 @@ Run this script once to preprocess all PDFs and create embeddings.
 import os
 from pathlib import Path
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 from dotenv import load_dotenv
 import tiktoken
@@ -182,17 +182,43 @@ def load_and_split_pdf(pdf_path):
 def extract_chapter_info(text):
     """Extract chapter information from text content"""
     lines = text.split('\n')
-    for line in lines[:5]:  # Check first 5 lines
-        line = line.strip().lower()
-        if 'chapter' in line or 'unit' in line:
-            return line.title()
     
-    # Look for numbered sections or headers
+    # Check first 10 lines for chapter/unit headers
     for line in lines[:10]:
-        line = line.strip()
-        if len(line) < 100 and any(char.isdigit() for char in line[:10]):
-            if any(keyword in line.lower() for keyword in ['introduction', 'definition', 'theorem', 'example']):
-                return line[:50] + "..." if len(line) > 50 else line
+        line_clean = line.strip()
+        line_lower = line_clean.lower()
+        
+        # Look for chapter patterns
+        if 'chapter' in line_lower:
+            # Extract chapter number and title
+            if 'fluid mechanics' in line_lower:
+                return "Chapter 6 Fluid Mechanics"
+            elif 'electricity' in line_lower:
+                return "Chapter 11 Electricity"
+            elif 'heat' in line_lower and 'thermodynamics' in line_lower:
+                return "Chapter 8 Heat and Thermodynamics"
+            elif 'particle physics' in line_lower:
+                return "Chapter 12 Particle Physics"
+            else:
+                return line_clean[:50] + "..." if len(line_clean) > 50 else line_clean
+        
+        # Look for unit patterns
+        if 'unit' in line_lower:
+            if 'fluid mechanics' in line_lower:
+                return "Unit 6 Fluid Mechanics"
+            elif 'electricity' in line_lower:
+                return "Unit 11 Electricity"
+            elif 'heat' in line_lower and 'thermodynamics' in line_lower:
+                return "Unit 8 Heat and Thermodynamics"
+            else:
+                return line_clean[:50] + "..." if len(line_clean) > 50 else line_clean
+    
+    # Look for section headers with numbers
+    for line in lines[:15]:
+        line_clean = line.strip()
+        if len(line_clean) < 100 and any(char.isdigit() for char in line_clean[:10]):
+            if any(keyword in line_clean.lower() for keyword in ['introduction', 'definition', 'theorem', 'example', 'section']):
+                return line_clean[:50] + "..." if len(line_clean) > 50 else line_clean
     
     return "General Content"
 
@@ -205,9 +231,9 @@ def create_vector_store(documents, grade, subject):
     print(f"Creating vector store for {grade}_{subject}...")
     
     # Initialize embeddings
-    embeddings = GoogleGenerativeAIEmbeddings(
-        model="models/embedding-001",
-        google_api_key=os.getenv("GOOGLE_API_KEY")
+    embeddings = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
+        model_kwargs={'device': 'cpu'}
     )
     
     # Create directory for this grade+subject
@@ -257,11 +283,11 @@ def main():
     print("=== Federal Board Study Bot - PDF Preprocessing ===")
     print()
     
-    # Check if Google API key is set
-    if not os.getenv("GOOGLE_API_KEY"):
-        print("Error: GOOGLE_API_KEY not found in environment variables.")
-        print("Please set your Google Gemini API key in the .env file.")
-        return
+    # Check if Groq API key is set (for future LLM features)
+    if not os.getenv("GROQ_API_KEY"):
+        print("Warning: GROQ_API_KEY not found in environment variables.")
+        print("Please set your Groq API key in the .env file for LLM features.")
+        print("Continuing with embedding generation only...")
     
     # Validate PDF structure
     print("Validating PDF file structure...")
