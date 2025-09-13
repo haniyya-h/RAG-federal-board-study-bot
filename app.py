@@ -25,6 +25,8 @@ EMBEDDINGS_DIR = Path('embeddings')
 # Initialize session state
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
+if 'conversation_memory' not in st.session_state:
+    st.session_state.conversation_memory = []  # Store conversation context for memory
 if 'current_vectorstore' not in st.session_state:
     st.session_state.current_vectorstore = None
 if 'current_grade_subject' not in st.session_state:
@@ -62,15 +64,15 @@ def subject_to_filename(subject):
     return subject.lower().replace(' ', '_')
 
 def extract_chapter_from_content(text):
-    """Extract chapter information from document content"""
+    """Extract chapter information from document content for all subjects"""
     lines = text.split('\n')
     
-    # Check first 10 lines for chapter/unit headers
-    for line in lines[:10]:
+    # Check first 15 lines for chapter/unit headers
+    for line in lines[:15]:
         line_clean = line.strip()
         line_lower = line_clean.lower()
         
-        # Look for specific chapter patterns
+        # === PHYSICS CHAPTERS ===
         if 'fluid mechanics' in line_lower:
             return "Chapter 6 Fluid Mechanics"
         elif 'electricity' in line_lower and ('unit' in line_lower or 'chapter' in line_lower):
@@ -81,8 +83,139 @@ def extract_chapter_from_content(text):
             return "Chapter 12 Particle Physics"
         elif 'superfluidity' in line_lower:
             return "Chapter 6 Fluid Mechanics"  # Superfluidity is part of fluid mechanics
+        elif 'mechanics' in line_lower and ('chapter' in line_lower or 'unit' in line_lower):
+            return "Chapter 3 Mechanics"
+        elif 'waves' in line_lower and ('chapter' in line_lower or 'unit' in line_lower):
+            return "Chapter 7 Waves"
+        elif 'optics' in line_lower:
+            return "Chapter 9 Optics"
+        elif 'atomic physics' in line_lower:
+            return "Chapter 10 Atomic Physics"
+        elif 'nuclear physics' in line_lower:
+            return "Chapter 13 Nuclear Physics"
+        
+        # === MATHEMATICS CHAPTERS ===
+        elif 'algebra' in line_lower and ('chapter' in line_lower or 'unit' in line_lower):
+            return "Chapter 2 Algebra"
+        elif 'geometry' in line_lower and ('chapter' in line_lower or 'unit' in line_lower):
+            return "Chapter 4 Geometry"
+        elif 'trigonometry' in line_lower:
+            return "Chapter 5 Trigonometry"
+        elif 'calculus' in line_lower:
+            return "Chapter 8 Calculus"
+        elif 'statistics' in line_lower:
+            return "Chapter 9 Statistics"
+        elif 'probability' in line_lower:
+            return "Chapter 10 Probability"
+        elif 'matrices' in line_lower:
+            return "Chapter 6 Matrices"
+        elif 'vectors' in line_lower:
+            return "Chapter 7 Vectors"
+        elif 'coordinate geometry' in line_lower:
+            return "Chapter 3 Coordinate Geometry"
+        elif 'number system' in line_lower:
+            return "Chapter 1 Number System"
+        
+        # === BIOLOGY CHAPTERS ===
+        elif 'cell biology' in line_lower or 'cell structure' in line_lower:
+            return "Chapter 1 Cell Biology"
+        elif 'genetics' in line_lower:
+            return "Chapter 3 Genetics"
+        elif 'ecology' in line_lower:
+            return "Chapter 5 Ecology"
+        elif 'human anatomy' in line_lower or 'human body' in line_lower:
+            return "Chapter 4 Human Anatomy"
+        elif 'plant biology' in line_lower or 'plant structure' in line_lower:
+            return "Chapter 2 Plant Biology"
+        elif 'evolution' in line_lower:
+            return "Chapter 6 Evolution"
+        elif 'biochemistry' in line_lower:
+            return "Chapter 7 Biochemistry"
+        elif 'microbiology' in line_lower:
+            return "Chapter 8 Microbiology"
+        elif 'reproduction' in line_lower:
+            return "Chapter 9 Reproduction"
+        elif 'respiratory system' in line_lower:
+            return "Chapter 10 Respiratory System"
+        elif 'circulatory system' in line_lower:
+            return "Chapter 11 Circulatory System"
+        elif 'nervous system' in line_lower:
+            return "Chapter 12 Nervous System"
+        
+        # === CHEMISTRY CHAPTERS ===
+        elif 'atomic structure' in line_lower:
+            return "Chapter 1 Atomic Structure"
+        elif 'periodic table' in line_lower:
+            return "Chapter 2 Periodic Table"
+        elif 'chemical bonding' in line_lower:
+            return "Chapter 3 Chemical Bonding"
+        elif 'organic chemistry' in line_lower:
+            return "Chapter 5 Organic Chemistry"
+        elif 'inorganic chemistry' in line_lower:
+            return "Chapter 4 Inorganic Chemistry"
+        elif 'stoichiometry' in line_lower:
+            return "Chapter 6 Stoichiometry"
+        elif 'thermodynamics' in line_lower and 'chemistry' in line_lower:
+            return "Chapter 7 Chemical Thermodynamics"
+        elif 'electrochemistry' in line_lower:
+            return "Chapter 8 Electrochemistry"
+        elif 'acid base' in line_lower or 'acids and bases' in line_lower:
+            return "Chapter 9 Acids and Bases"
+        elif 'reaction kinetics' in line_lower:
+            return "Chapter 10 Reaction Kinetics"
+        elif 'equilibrium' in line_lower and 'chemical' in line_lower:
+            return "Chapter 11 Chemical Equilibrium"
+        elif 'coordination compounds' in line_lower:
+            return "Chapter 12 Coordination Compounds"
+        
+        # === COMPUTER SCIENCE CHAPTERS ===
+        elif 'programming' in line_lower and ('chapter' in line_lower or 'unit' in line_lower):
+            return "Chapter 3 Programming"
+        elif 'data structures' in line_lower:
+            return "Chapter 4 Data Structures"
+        elif 'algorithms' in line_lower:
+            return "Chapter 5 Algorithms"
+        elif 'database' in line_lower:
+            return "Chapter 6 Database Management"
+        elif 'networking' in line_lower or 'computer networks' in line_lower:
+            return "Chapter 7 Computer Networks"
+        elif 'operating system' in line_lower:
+            return "Chapter 8 Operating Systems"
+        elif 'software engineering' in line_lower:
+            return "Chapter 9 Software Engineering"
+        elif 'computer organization' in line_lower:
+            return "Chapter 2 Computer Organization"
+        elif 'information systems' in line_lower:
+            return "Chapter 10 Information Systems"
+        elif 'web development' in line_lower:
+            return "Chapter 11 Web Development"
+        elif 'artificial intelligence' in line_lower:
+            return "Chapter 12 Artificial Intelligence"
+        elif 'computer fundamentals' in line_lower:
+            return "Chapter 1 Computer Fundamentals"
+        
+        # === GENERAL PATTERNS ===
+        # Look for numbered chapters/units
+        if 'chapter' in line_lower and any(char.isdigit() for char in line_clean[:10]):
+            return line_clean[:50] + "..." if len(line_clean) > 50 else line_clean
+        elif 'unit' in line_lower and any(char.isdigit() for char in line_clean[:10]):
+            return line_clean[:50] + "..." if len(line_clean) > 50 else line_clean
+        elif 'lesson' in line_lower and any(char.isdigit() for char in line_clean[:10]):
+            return line_clean[:50] + "..." if len(line_clean) > 50 else line_clean
     
     return None
+
+def build_conversation_history():
+    """Build conversation history from recent chat interactions"""
+    if not st.session_state.conversation_memory:
+        return "No previous conversation context."
+    
+    history = "Recent conversation:\n"
+    for i, memory in enumerate(st.session_state.conversation_memory[-3:], 1):  # Last 3 exchanges
+        history += f"Q{i}: {memory['question']}\n"
+        history += f"A{i}: {memory['answer'][:200]}...\n\n"  # Truncate long answers
+    
+    return history
 
 @st.cache_resource
 def create_qa_chain(_vectorstore, llm, custom_prompt):
@@ -176,6 +309,8 @@ INSTRUCTIONS:
 6. Maintain a professional yet approachable tone
 7. Keep answers focused and under 300 words
 8. Ensure accuracy and educational value
+9. Use conversation history to provide context-aware responses
+10. Reference previous topics when relevant to current question
 
 CONTEXT from Federal Board Textbook:
 {context}
@@ -300,6 +435,7 @@ def main():
         st.session_state.current_vectorstore = vectorstore
         st.session_state.current_grade_subject = current_selection
         st.session_state.chat_history = []  # Clear chat history on subject change
+        st.session_state.conversation_memory = []  # Clear conversation memory on subject change
     
     # Display current selection
     st.sidebar.success(f"✅ Grade {selected_grade} - {selected_subject}")
@@ -330,6 +466,14 @@ def main():
                 llm = load_llm()
                 custom_prompt = create_custom_prompt()
                 
+                # Build conversation history for context
+                conversation_history = build_conversation_history()
+                
+                # Create enhanced question with conversation context
+                enhanced_question = question
+                if conversation_history != "No previous conversation context.":
+                    enhanced_question = f"CONTEXT: {conversation_history}\n\nCURRENT QUESTION: {question}"
+                
                 # Use cached QA chain
                 qa_chain = create_qa_chain(
                     st.session_state.current_vectorstore, 
@@ -337,8 +481,8 @@ def main():
                     custom_prompt
                 )
                 
-                # Get answer from textbook
-                result = qa_chain({"query": question})
+                # Get answer from textbook with conversation context
+                result = qa_chain({"query": enhanced_question})
                 answer = result["result"]
                 source_docs = result["source_documents"]
                 
@@ -356,6 +500,16 @@ def main():
                     "response": formatted_response,
                     "timestamp": time.strftime("%H:%M:%S")
                 })
+                
+                # Add to conversation memory for context
+                st.session_state.conversation_memory.append({
+                    "question": question,
+                    "answer": answer  # Store just the answer, not the full formatted response
+                })
+                
+                # Keep only last 5 exchanges in memory to avoid token limits
+                if len(st.session_state.conversation_memory) > 5:
+                    st.session_state.conversation_memory = st.session_state.conversation_memory[-5:]
                 
             except Exception as e:
                 st.error(f"Error generating answer: {str(e)}")
@@ -386,6 +540,7 @@ def main():
     # Clear chat history button
     if st.sidebar.button("🗑️ Clear Chat History"):
         st.session_state.chat_history = []
+        st.session_state.conversation_memory = []
         st.rerun()
 
 if __name__ == "__main__":
